@@ -1,0 +1,7 @@
+.terraform/
+.azure/
+.Azure/
+.local/
+.cache/
+*.tfstate
+*.tfstate.backup
