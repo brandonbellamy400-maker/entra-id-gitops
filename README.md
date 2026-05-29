@@ -93,9 +93,7 @@ Enterprise applications and permissions mapped cleanly according to our configur
 
 The finalized directory run updates the live tenant landscape with a clean, fully reconciled state matrix:
 
-<img width="1920" height="1200" alt="Final State Synchronization Matrix" src="https://github.com/user-attachments/assets/ada0a3e9-c306-493c-9da4-ad7fe794450e" />
-
----
+<img width="1920" height="1200" alt="Final State Synchronization Matrix" src="NEW SCREENSHOT.png" />  
 
 ## 🎯 Engineering Takeaways & Architectural Insights
 * **The Power of Declarative Identity:** Shifting identity management from manual GUI clicks to version-controlled files guarantees repeatable, audit-ready environments. Human latency and configuration drift are entirely mitigated.
