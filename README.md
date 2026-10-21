@@ -1,101 +1,180 @@
- # 🆔 Production-Grade Microsoft Entra ID Infrastructure-as-Code & GitOps Pipeline
+# 🆔 Entra ID Lifecycle Automation: Terraform + GitHub Actions with OIDC
 
-## 🏢 Business Problem: The Configuration Drift & Identity Access Shadow Window
-* **Company Problem:** Global enterprise logistics provider **BrandonTech** faced audit flags and security risks due to manual configurations within the Microsoft Entra ID tenant. Manual entry introduced configuration drift, lacked version history, and risked human error when provisioning critical enterprise architecture (e.g., security groups, administrative roles, and application registrations). Furthermore, traditional credential-based CI/CD pipelines exposed static client secrets within the repository settings, presenting a major surface vector for credential harvesting.
-* **The Solution:** As an Identity and Access Management (IAM) Engineer, I designed and deployed a declarative, zero-trust **GitOps automation pipeline** to completely codify Microsoft Entra ID. Utilizing **Terraform**, the entire directory state is managed strictly as code. To eliminate static credential risks, the automation engine is powered by **GitHub Actions** utilizing passwordless **OpenID Connect (OIDC)** federated identity mapping directly into Azure, enforcing a strict pull-request-driven deployment workflow.
+A home lab where I brought an existing Azure identity-automation resource (an offboarding Logic App) under Terraform control, then connected the repo to Azure with a **GitHub Actions pipeline that signs in using OIDC**, so no passwords or client secrets are stored in GitHub.
 
----
-
-## 🛠️ Skills and Technologies Demonstrated
-* **Identity-as-Code (IaC):** Advanced Microsoft Entra ID Terraform Provider configuration.
-* **DevSecOps & GitOps:** GitHub Actions pipeline engineering, strict branch protections, and peer-review workflows.
-* **Zero-Trust Security:** Passwordless OIDC federation, Azure Managed Identities, and least-privilege Graph API scoping.
-* **State Management:** Secure remote state configuration with Azure Blob Storage backend locking.
+**Write it as code → import what already exists → let the pipeline check it → no stored secrets.**
 
 ---
 
-## 🚀 Step-by-Step Lab Walkthrough
+## 🏢 Scenario
 
-## Phase 1: Passwordless Federated Authentication (OIDC) Engineering
-To completely eliminate the risk of static credential leaks, I established a passwordless OpenID Connect (OIDC) trust between GitHub and Microsoft Entra ID. By creating a dedicated App Registration and configuring a Federated Identity Credential, GitHub Actions securely requests a short-lived JSON Web Token (JWT) directly from the Microsoft identity platform during runtime.
+A fictional company, *BrandonTech*, built its identity automation by clicking around in the Azure portal. That causes three problems:
 
-This ensures that the deployment runner assumes a scoped cryptographic identity dynamically, without a single password or secret saved in repository variables.
+1. **No history.** Nobody can see who changed what, or roll it back.
+2. **Drift.** The live setup slowly stops matching what anyone thinks it is.
+3. **Secret risk.** Many CI/CD pipelines log in to Azure with a stored client secret. If that secret leaks, an attacker can log in as the pipeline.
 
-<img width="1920" height="1200" alt="OIDC App Registration Setup" src="https://github.com/user-attachments/assets/a67f43f8-2248-406c-aa26-8220ace88b7a" />
+**Goal:** Manage the offboarding automation as Terraform code in GitHub, and let GitHub Actions authenticate to Azure **without any stored secret**.
 
----
-
-## Phase 2: Remote State Architecture & Security Scoping
-To maintain a single source of truth across the engineering team, I configured a remote Terraform state backend using a secure Azure Blob Storage container. State locking via Azure Storage ensures zero deployment collisions during parallel team executions. 
-
-Additionally, the federated identity was granted precise Microsoft Graph API directory permissions (`Group.ReadWrite.All`, `Application.ReadWrite.All`, etc.), aligning strictly with the principle of least privilege.
-
-<img width="1920" height="1200" alt="Terraform Backend and Graph Permissions" src="https://github.com/user-attachments/assets/e4111e52-28bd-4454-a5f6-e47dd540dd41" />
+> Everything was done in my own sandbox tenant and subscription. No real users or production systems were involved.
 
 ---
 
-## Phase 3: Declarative Directory Codification (Terraform)
-In this phase, I translated BrandonTech's identity architecture into declarative Terraform manifests (`.tf`). This configuration explicitly defines enterprise security boundaries, security groups, application objects, and access packages.
+## 🛠️ Skills and Technologies
 
-The underlying file layout maps out local variables and standard infrastructure targets cleanly:
-
-<img width="1920" height="1200" alt="Terraform Code Base Layout" src="https://github.com/user-attachments/assets/1e0e4f26-585e-48c6-9d6c-87247fa34723" />
-
-Before sending the changes up to the remote pipeline, I executed a local validation run to verify syntactical integrity and preview the planned directory mutations:
-
-<img width="1920" height="1200" alt="Terraform Local Validation" src="https://github.com/user-attachments/assets/50f551e6-c7e2-45db-b73a-96cd491b8f63" />
-
----
-
-## Phase 4: GitOps CI/CD Automation Pipeline (GitHub Actions)
-I engineered a multi-stage GitHub Actions workflow designed to enforce strict code-review controls before modifying production identity infrastructure.
-
-The core orchestration file outlines the two distinct target execution conditions:
-
-<img width="1920" height="1200" alt="GitHub Actions Pipeline Logic" src="https://github.com/user-attachments/assets/b1e6023e-45b6-4af1-93fd-a8dcbec22ed5" />
-
-1. **Pull Request (CI Stage):** Triggered automatically upon a PR submission to `main`. It initializes Terraform, validates format linting, and runs a speculative `terraform plan`. 
-2. **Merge to Main (CD Stage):** Triggered only when the PR is approved and merged. The runner authenticates via OIDC, locks the state backend, and executes `terraform apply --auto-approve` to smoothly mutate the active tenant directory environment.
-
-Pushing changes to the repository automatically fires up the workflow triggers:
-
-<img width="1920" height="1200" alt="Workflow CI Run Trigger" src="https://github.com/user-attachments/assets/57aee701-b9d5-4821-8787-ee90782cd118" />
+| Area | What I used |
+|---|---|
+| Infrastructure as Code | Terraform (`azurerm` and `azuread` providers) |
+| Identity automation | Azure Logic App with a **system-assigned managed identity**, triggered by an HTTP request carrying a `userId` |
+| CI/CD | GitHub Actions |
+| Passwordless auth | Entra ID app registration + **federated identity credential (OIDC)** |
+| Tooling | Azure Cloud Shell (PowerShell) |
 
 ---
 
-## Phase 5: Live Verification & Pipeline Execution Logs
-To validate the reliability of the GitOps model, I submitted a code modification to add new enterprise resources. The pipeline executed sequentially, presenting the precise ledger of infrastructure changes directly inside the automated runner.
+## 📁 Repository Layout
 
-The workflow first spins up the initialization and lint validation steps:
-
-<img width="1920" height="1200" alt="Terraform Init and Validate Stage" src="https://github.com/user-attachments/assets/4a43d115-0ea9-4b44-bb12-15e1d7c93820" />
-
-Next, the pipeline renders a structural preview output within the logs for peer review:
-
-<img width="1920" height="1200" alt="Terraform Plan Execution Output" src="https://github.com/user-attachments/assets/89f4b875-48eb-450c-b5b2-d10746feb666" />
-
-Once approved and merged, the deployment runner securely assumes the OIDC identity and applies the state changes directly to the cloud environment:
-
-<img width="1920" height="1200" alt="Terraform Apply Infrastructure Mutate" src="https://github.com/user-attachments/assets/cb92f7db-8b5d-4963-8184-b9af4b290397" />
+```
+.
+├── .github/workflows/main.yml   # GitHub Actions pipeline
+├── main.tf                      # Resource group, Logic App, HTTP trigger
+├── providers.tf                 # Terraform + provider versions, tenant
+├── variables.tf                 # Tenant ID, subscription ID, tags
+└── .gitignore                   # Keeps state files and local caches out of Git
+```
 
 ---
 
-## Phase 6: Directory Synchronization & State Drift Validation
-Following the pipeline's success, I logged into the Microsoft Entra Admin Center to confirm zero-touch provisioning. The directory objects matched the Git repository configurations precisely.
+## 🚀 Lab Walkthrough
 
-The newly codified security groups populated immediately within the identity console:
+### Phase 1: Writing the Terraform
 
-<img width="1920" height="1200" alt="Entra ID Provisioned Group Verification" src="https://github.com/user-attachments/assets/7ca7bf6a-c6d6-4d84-93fa-6e7fb83455aa" />
+I worked in Azure Cloud Shell and wrote three files.
 
-Enterprise applications and permissions mapped cleanly according to our configuration rules:
+**`providers.tf`** pins Terraform and the provider versions and points them at my tenant, so every run uses the same versions.
 
-<img width="1920" height="1200" alt="Enterprise App Registrations Synchronized" src="https://github.com/user-attachments/assets/a2eec680-5fdc-4612-8255-d1b46dc6ca3b" />
+![providers.tf](Screenshot%202026-05-26%20193103.png)
 
-The finalized directory run updates the live tenant landscape with a clean, fully reconciled state matrix:
+**`variables.tf`** keeps the tenant ID, subscription ID and naming values in one place instead of hard-coding them everywhere.
 
-<img width="1920" height="1200" alt="Final State Synchronization Matrix" src="NEW SCREENSHOT.png" />  
+![variables.tf](Screenshot%202026-05-26%20193635.png)
 
-## 🎯 Engineering Takeaways & Architectural Insights
-* **The Power of Declarative Identity:** Shifting identity management from manual GUI clicks to version-controlled files guarantees repeatable, audit-ready environments. Human latency and configuration drift are entirely mitigated.
-* **Eliminating Secret Rotation Overhead:** By leveraging GitHub OIDC identity federation, the enterprise drops the operational overhead and risk of rotating long-lived client secrets, significantly strengthening the platform's security posture.
-* **Strict Governance Workflows:** Requiring an approved Pull Request before modifying directory permissions protects core infrastructure from unauthorized or unreviewed modifications, aligning beautifully with modern corporate compliance guidelines.
+**`main.tf`** defines three resources:
+
+| Resource | What it is |
+|---|---|
+| `azurerm_resource_group.iam_rg` | `rg-iam-automation`, the container for the automation |
+| `azurerm_logic_app_workflow.offboard_orchestrator` | `logic-entra-lifecycle-worker`, the offboarding workflow, with a **system-assigned managed identity** so it can call other services without a stored credential |
+| `azurerm_logic_app_trigger_custom.http_trigger` | An HTTP POST endpoint that requires a `userId`, so another system can say "offboard this user" |
+
+![main.tf](Screenshot%202026-05-26%20194001.png)
+
+### Phase 2: Initializing and Planning
+
+`terraform init` downloaded the pinned providers. `terraform plan` then showed what Terraform would change before anything was touched.
+
+![terraform init](Screenshot%202026-05-26%20194136.png)
+![terraform plan](Screenshot%202026-05-26%20195226.png)
+
+### Phase 3: Importing Existing Resources
+
+The resource group and Logic App **already existed** because I'd originally built them in the portal. Instead of deleting and recreating them, I used `terraform import` to bring them under Terraform's management. This is how real teams move portal-built resources into code without downtime.
+
+![Import resource group](Screenshot%202026-05-26%20195805.png)
+![Import Logic App](Screenshot%202026-05-26%20200106.png)
+
+### Phase 4: Applying the Change
+
+`terraform apply` brought Azure in line with the code: it **created** the HTTP trigger and **updated** the Logic App to match the code.
+
+```
+Apply complete! Resources: 1 added, 1 changed, 0 destroyed.
+```
+
+![terraform apply](Screenshot%202026-05-26%20200259.png)
+
+### Phase 5: Passwordless Login for GitHub Actions (OIDC)
+
+I created an Entra ID **app registration** for the pipeline and added a **federated identity credential** to it:
+
+| Setting | Value | Why it matters |
+|---|---|---|
+| Issuer | `https://token.actions.githubusercontent.com` | Only trust tokens issued by GitHub Actions |
+| Subject | `repo:brandonbellamy400-maker/entra-id-gitops:ref:refs/heads/main` | Only trust **this repo's `main` branch**, not any other repo or branch |
+
+**How it works:** when the workflow runs, GitHub issues a short-lived token that says "I'm this repo, on main." Entra checks it against the federated credential and hands back a short-lived Azure access token. **No password or client secret exists anywhere** to leak or rotate.
+
+![Federated credential](Screenshot%202026-05-26%20201151.png)
+
+I then added three **repository secrets** to GitHub: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`. These are **IDs, not passwords**. They tell the pipeline *which* identity to use, but can't be used to log in on their own.
+
+![GitHub secrets](Screenshot%202026-05-26%20201846.png)
+
+### Phase 6: The Pipeline
+
+The workflow in `.github/workflows/main.yml`:
+
+```yaml
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # lets the job request a GitHub OIDC token
+  contents: read
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC: true # tells Terraform to log in with OIDC instead of a secret
+```
+
+On every push to `main`, it checks out the code, installs Terraform 1.5.7, signs in to Azure through OIDC, and runs `terraform init` and `terraform plan`.
+
+![Workflow file](Screenshot%202026-05-26%20202420.png)
+
+### Phase 7: Successful Run
+
+The pipeline authenticated to Azure with OIDC and completed successfully, with **no stored secret involved**.
+
+![Successful pipeline run](Screenshot%202026-05-26%20205848.png)
+
+---
+
+## 📊 Results
+
+- The offboarding Logic App and its HTTP trigger are now **defined in code** with full Git history.
+- Portal-built resources were **imported** into Terraform instead of being rebuilt.
+- GitHub Actions authenticates to Azure using **OIDC federation**, scoped to one repo and one branch, with **zero stored credentials**.
+
+---
+
+## ⚠️ Current Limitations (Honest Notes)
+
+This is a working foundation, not a finished production pipeline:
+
+- **Local state.** There's no remote backend yet, so the pipeline starts with empty state each run. That's why it runs `plan` only. Running `apply` from the pipeline would try to recreate resources that already exist.
+- **Push-triggered, not PR-gated.** The workflow runs on pushes to `main`. It doesn't yet run a plan on pull requests for review before merge.
+- **No Entra directory objects yet.** The `azuread` provider is configured, but groups and app registrations aren't managed in code yet.
+- **The Logic App's steps** (disabling the account, revoking sessions, removing group memberships) aren't defined in this repo yet. Only the workflow shell and trigger are.
+
+---
+
+## ⏭️ Next Steps
+
+- [ ] Add an **Azure Blob Storage remote backend** (`backend "azurerm"` with `use_oidc = true`) so state is shared and locked
+- [ ] Run `terraform plan` on **pull requests**, and `terraform apply` only after **merge to `main`**
+- [ ] Add **branch protection** so changes to `main` require a reviewed PR
+- [ ] Manage **security groups** and **app registrations** with `azuread_group` / `azuread_application`
+- [ ] Define the offboarding steps: disable the user, revoke sessions, remove group memberships
+- [ ] Narrow the pipeline identity's permissions to only what Terraform needs
+
+---
+
+## 💡 What I Learned
+
+- How Terraform compares **code to reality** and only changes what's different
+- How to **import** existing resources instead of rebuilding them
+- How **OIDC federation** replaces stored secrets, and how the subject claim restricts which repo and branch can log in
+- Why the pipeline's identity must be protected like a **privileged admin account**: whoever can change `main` can change Azure
