@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   terraform:
-    name: "Terraform Automated Apply"
+    name: "Terraform Plan"
     runs-on: ubuntu-latest
     env:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -31,5 +31,5 @@ jobs:
       - name: "Terraform Init"
         run: terraform init
 
-      - name: "Terraform Apply"
+      - name: "Terraform Plan"
         run: terraform plan 
